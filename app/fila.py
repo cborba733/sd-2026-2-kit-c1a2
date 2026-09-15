@@ -13,6 +13,7 @@ import redis
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 FILA_TAREFAS = "tarefas"
 PREFIXO_RESULTADO = "resultado:"
+FILA_DESCARTE = "tarefas_descartadas"
 
 _cliente = None
 
@@ -29,7 +30,7 @@ def enfileirar(texto: str) -> str:
     tarefa_id = str(uuid.uuid4())
     cliente().rpush(FILA_TAREFAS, json.dumps({"id": tarefa_id, "texto": texto}))
     cliente().set(PREFIXO_RESULTADO + tarefa_id,
-                  json.dumps({"status": "na_fila"}))
+                   json.dumps({"status": "na_fila"}))
     return tarefa_id
 
 
@@ -48,3 +49,8 @@ def guardar_resultado(tarefa_id: str, resultado: dict) -> None:
 def buscar_resultado(tarefa_id: str):
     bruto = cliente().get(PREFIXO_RESULTADO + tarefa_id)
     return json.loads(bruto) if bruto else None
+
+
+def descartar(tarefa: dict, erro: str) -> None:
+    """Move uma tarefa que falhou definitivamente para a fila de descarte (dead-letter)."""
+    cliente().rpush(FILA_DESCARTE, json.dumps({**tarefa, "erro": erro}))

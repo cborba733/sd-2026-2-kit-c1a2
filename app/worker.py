@@ -14,6 +14,8 @@ import time
 from app import fila
 from app.modelo import carregar_modelo
 
+MAX_TENTATIVAS = 3
+
 
 def main():
     print("[worker] carregando modelo...")
@@ -26,19 +28,34 @@ def main():
             continue
 
         print(f"[worker] processando {tarefa['id']}")
-        inicio = time.time()
-        try:
-            resultado = modelo.prever(tarefa["texto"])
-            resultado["status"] = "pronto"
-            resultado["tempo_ms"] = round((time.time() - inicio) * 1000, 2)
 
-            # TAREFA 3: guarda o resultado para o cliente consultar depois.
-            fila.guardar_resultado(tarefa["id"], resultado)
-            print(f"[worker] concluido {tarefa['id']}")
+        for tentativa in range(1, MAX_TENTATIVAS + 1):
+            inicio = time.time()
+            try:
+                resultado = modelo.prever(tarefa["texto"])
+                resultado["status"] = "pronto"
+                resultado["tempo_ms"] = round((time.time() - inicio) * 1000, 2)
 
-        except Exception as erro:  # noqa: BLE001
-            # TAREFA 5: retentativa + dead-letter em vez de so registrar.
-            print(f"[worker] ERRO em {tarefa['id']}: {erro}")
+                # TAREFA 3: guarda o resultado para o cliente consultar depois.
+                fila.guardar_resultado(tarefa["id"], resultado)
+                print(f"[worker] concluido {tarefa['id']}")
+                break  # deu certo, nao precisa tentar de novo
+
+            except Exception as erro:  # noqa: BLE001
+                print(f"[worker] ERRO em {tarefa['id']} "
+                      f"(tentativa {tentativa}/{MAX_TENTATIVAS}): {erro}")
+
+                if tentativa == MAX_TENTATIVAS:
+                    # esgotou as tentativas: manda pra fila de descarte
+                    fila.descartar(tarefa, str(erro))
+                    fila.guardar_resultado(
+                        tarefa["id"],
+                        {"status": "falhou", "erro": str(erro)},
+                    )
+                    print(f"[worker] {tarefa['id']} descartada "
+                          f"apos {MAX_TENTATIVAS} tentativas")
+                else:
+                    time.sleep(1)  # espera um pouco antes de tentar de novo
 
 
 if __name__ == "__main__":
