@@ -18,6 +18,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 from app.modelo import carregar_modelo
+from app import fila
 
 app = FastAPI(title="Servico de Inferencia - C1.A2", version="0.1.0")
 
@@ -56,18 +57,22 @@ def predict_sync(entrada: Entrada):
 # ------------------------------------------------------------------
 # TAREFA 1 - submissao assincrona
 # ------------------------------------------------------------------
-# @app.post("/predict", status_code=202)
-# def predict(entrada: Entrada):
-#     """Deve enfileirar a tarefa e devolver {"id": ...} SEM esperar."""
-#     # DICA: use app.fila.enfileirar(entrada.texto)
-#     raise NotImplementedError("implemente a submissao assincrona")
+@app.post("/predict", status_code=202)
+def predict(entrada: Entrada):
+    """Enfileira a tarefa e devolve o id SEM esperar o resultado."""
+    if not entrada.texto.strip():
+        raise HTTPException(status_code=400, detail="texto vazio")
+    tarefa_id = fila.enfileirar(entrada.texto)
+    return {"id": tarefa_id}
 
 
 # ------------------------------------------------------------------
 # TAREFA 2 - consulta do resultado
 # ------------------------------------------------------------------
-# @app.get("/resultado/{tarefa_id}")
-# def resultado(tarefa_id: str):
-#     """Deve devolver o resultado; 404 se o id nao existir."""
-#     # DICA: use app.fila.buscar_resultado(tarefa_id)
-#     raise NotImplementedError("implemente a consulta de resultado")
+@app.get("/resultado/{tarefa_id}")
+def resultado(tarefa_id: str):
+    """Devolve o resultado da tarefa; 404 se o id nao existir."""
+    dados = fila.buscar_resultado(tarefa_id)
+    if dados is None:
+        raise HTTPException(status_code=404, detail="tarefa nao encontrada")
+    return dados
