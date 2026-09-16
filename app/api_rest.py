@@ -19,6 +19,7 @@ from pydantic import BaseModel
 
 from app.modelo import carregar_modelo
 from app import fila
+from app.log import logger
 
 app = FastAPI(title="Servico de Inferencia - C1.A2", version="0.1.0")
 
@@ -51,6 +52,10 @@ def predict_sync(entrada: Entrada):
     inicio = time.time()
     resultado = modelo.prever(entrada.texto)
     resultado["tempo_ms"] = round((time.time() - inicio) * 1000, 2)
+    logger.info(
+        "predict-sync tamanho_entrada=%d tempo_ms=%.2f",
+        len(entrada.texto), resultado["tempo_ms"],
+    )
     return resultado
 
 
@@ -62,7 +67,13 @@ def predict(entrada: Entrada):
     """Enfileira a tarefa e devolve o id SEM esperar o resultado."""
     if not entrada.texto.strip():
         raise HTTPException(status_code=400, detail="texto vazio")
+    inicio = time.time()
     tarefa_id = fila.enfileirar(entrada.texto)
+    tempo_ms = round((time.time() - inicio) * 1000, 2)
+    logger.info(
+        "predict id=%s tamanho_entrada=%d tempo_ms=%.2f",
+        tarefa_id, len(entrada.texto), tempo_ms,
+    )
     return {"id": tarefa_id}
 
 
@@ -72,7 +83,13 @@ def predict(entrada: Entrada):
 @app.get("/resultado/{tarefa_id}")
 def resultado(tarefa_id: str):
     """Devolve o resultado da tarefa; 404 se o id nao existir."""
+    inicio = time.time()
     dados = fila.buscar_resultado(tarefa_id)
+    tempo_ms = round((time.time() - inicio) * 1000, 2)
     if dados is None:
+        logger.warning(
+            "resultado id=%s nao_encontrado tempo_ms=%.2f", tarefa_id, tempo_ms
+        )
         raise HTTPException(status_code=404, detail="tarefa nao encontrada")
+    logger.info("resultado id=%s tempo_ms=%.2f", tarefa_id, tempo_ms)
     return dados

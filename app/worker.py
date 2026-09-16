@@ -13,6 +13,7 @@ import time
 
 from app import fila
 from app.modelo import carregar_modelo
+from app.log import logger
 
 MAX_TENTATIVAS = 3
 
@@ -38,6 +39,10 @@ def main():
 
                 # TAREFA 3: guarda o resultado para o cliente consultar depois.
                 fila.guardar_resultado(tarefa["id"], resultado)
+                logger.info(
+                    "worker id=%s tamanho_entrada=%d tempo_ms=%.2f",
+                    tarefa["id"], len(tarefa["texto"]), resultado["tempo_ms"],
+                )
                 print(f"[worker] concluido {tarefa['id']}")
                 break  # deu certo, nao precisa tentar de novo
 
@@ -51,6 +56,10 @@ def main():
                     fila.guardar_resultado(
                         tarefa["id"],
                         {"status": "falhou", "erro": str(erro)},
+                    )
+                    logger.warning(
+                        "worker id=%s descartada tentativas=%d erro=%s",
+                        tarefa["id"], MAX_TENTATIVAS, erro,
                     )
                     print(f"[worker] {tarefa['id']} descartada "
                           f"apos {MAX_TENTATIVAS} tentativas")

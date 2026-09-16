@@ -8,11 +8,13 @@ O QUE VOCE PRECISA FAZER (TAREFAS.md, item 4): o metodo PreverLote.
 
 Rodar:  python -m app.servidor_grpc
 """
+import time
 from concurrent import futures
 
 import grpc
 
 from app.modelo import carregar_modelo
+from app.log import logger
 
 try:
     import inferencia_pb2
@@ -33,13 +35,20 @@ class ServicoInferencia(inferencia_pb2_grpc.InferenciaServicer):
         print("[grpc] modelo pronto")
 
     def Prever(self, request, context):
+        inicio = time.time()
         r = self.modelo.prever(request.texto)
+        tempo_ms = round((time.time() - inicio) * 1000, 2)
+        logger.info(
+            "grpc Prever tamanho_entrada=%d tempo_ms=%.2f",
+            len(request.texto), tempo_ms,
+        )
         return inferencia_pb2.RespostaPrever(
             texto=r["texto"], sentimento=r["sentimento"], confianca=r["confianca"]
         )
 
     # TAREFA 4: implementa PreverLote, recebendo varios textos de uma vez.
     def PreverLote(self, request, context):
+        inicio = time.time()
         respostas = []
         for texto in request.textos:
             r = self.modelo.prever(texto)
@@ -50,6 +59,11 @@ class ServicoInferencia(inferencia_pb2_grpc.InferenciaServicer):
                     confianca=r["confianca"],
                 )
             )
+        tempo_ms = round((time.time() - inicio) * 1000, 2)
+        logger.info(
+            "grpc PreverLote quantidade=%d tempo_ms=%.2f",
+            len(request.textos), tempo_ms,
+        )
         return inferencia_pb2.RespostaLote(resultados=respostas)
 
 
