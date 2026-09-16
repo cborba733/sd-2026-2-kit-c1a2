@@ -38,9 +38,19 @@ class ServicoInferencia(inferencia_pb2_grpc.InferenciaServicer):
             texto=r["texto"], sentimento=r["sentimento"], confianca=r["confianca"]
         )
 
-    # TAREFA 4: implemente PreverLote, recebendo varios textos de uma vez.
-    # def PreverLote(self, request, context):
-    #     ...
+    # TAREFA 4: implementa PreverLote, recebendo varios textos de uma vez.
+    def PreverLote(self, request, context):
+        respostas = []
+        for texto in request.textos:
+            r = self.modelo.prever(texto)
+            respostas.append(
+                inferencia_pb2.RespostaPrever(
+                    texto=r["texto"],
+                    sentimento=r["sentimento"],
+                    confianca=r["confianca"],
+                )
+            )
+        return inferencia_pb2.RespostaLote(resultados=respostas)
 
 
 def servir(porta: int = 50051):
