@@ -67,6 +67,8 @@ suficiente para não valer a pena enfileirar.
   novamente até **3 vezes** (com um pequeno intervalo entre tentativas). Se todas
   falharem, a tarefa é movida para uma fila de descarte (*dead-letter*, `tarefas_descartadas`
   no Redis) e o resultado é marcado como `status: "falhou"`, ambos registrados em log.
+  Testado na prática: forçando uma falha simulada, o worker registrou as 3 tentativas
+  e descartou a tarefa corretamente.
 
 ## Logging
 
@@ -112,7 +114,8 @@ git clone https://github.com/cborba733/sd-2026-2-kit-c1a2.git
 cd sd-2026-2-kit-c1a2
 
 # 2. Crie e ative o ambiente virtual
-python -m venv .venv
+python3 -m venv .venv            # Linux/macOS
+# python -m venv .venv           # Windows
 source .venv/bin/activate        # Linux/macOS
 # .venv\Scripts\activate         # Windows
 
@@ -123,18 +126,23 @@ pip install -r requirements.txt
 docker compose up -d
 
 # 5. Gere os stubs do gRPC (necessário antes de rodar o servidor gRPC)
-python -m grpc_tools.protoc -I proto --python_out=. --grpc_python_out=. proto/inferencia.proto
+python3 -m grpc_tools.protoc -I proto --python_out=. --grpc_python_out=. proto/inferencia.proto
+# Windows: troque "python3" por "python" no comando acima
 
 # 6. Em um terminal: suba a API REST
 uvicorn app.api_rest:app --reload --port 8000
 # docs interativos em http://localhost:8000/docs
 
 # 7. Em outro terminal: suba o worker
-python -m app.worker
+python3 -m app.worker
 
 # 8. Em outro terminal: suba o servidor gRPC
-python -m app.servidor_grpc
+python3 -m app.servidor_grpc
 ```
+
+Na primeira vez que qualquer um dos três serviços sobe, o modelo é treinado localmente
+(scikit-learn, sem internet nem GPU) e salvo em `app/modelo.joblib`; nas próximas vezes
+ele só é carregado do disco, o que é bem mais rápido.
 
 ### Testando
 
@@ -158,11 +166,8 @@ curl http://localhost:8000/resultado/<id>
 
 **gRPC** (com o servidor rodando em outro terminal):
 ```bash
-python testar_grpc.py
+python3 testar_grpc.py
 ```
-
-O modelo é treinado localmente na primeira execução (não precisa de internet nem GPU) e
-salvo em `app/modelo.joblib` para as próximas vezes.
 
 ## Decisões de projeto
 
